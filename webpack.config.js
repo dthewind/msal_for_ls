@@ -74,7 +74,10 @@ module.exports = {
     devServer: {
         port: 4400,
         publicPath: '/',
-        contentBase: path.resolve(__dirname, 'src')
+        contentBase: path.resolve(__dirname, 'src'),
+        historyApiFallback: {
+            index: 'index.html'
+        }
     },
     module: {
         rules: rules

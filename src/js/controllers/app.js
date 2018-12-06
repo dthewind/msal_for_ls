@@ -6,7 +6,7 @@
         .controller('AppController', ['$rootScope', '$scope', '$document', 'LoggingService',
             function ($rootScope, $scope, $document, LoggingService) {
 
-                LoggingService.debug('appController');
+                LoggingService.debug('AppController');
             }
         ])
 

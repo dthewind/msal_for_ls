@@ -1,5 +1,3 @@
-const path = require('path');
-
 var Msal = require('msal');
 var angular = require('angular');
 
@@ -10,14 +8,7 @@ require('ngStorage');
 var modules = [
     'ui.router',
     'MsalAngular',
-    'ngStorage',
-    // 'ngSanitize',
-    // 'ui.bootstrap',
-    // 'dtw.icons',
-    // 'dtw.folders',
-    // 'ls.folderSelect',
-    // 'ls.tableauPreview',
-    // 'ui.tree'
+    'ngStorage'
 ];
 
 var msalLogger = function (LoggingService) {
@@ -43,7 +34,6 @@ var msalTokenReceivedCallback = function (LoggingService) {
 
 function htmlMode($locationProvider) {
     $locationProvider.html5Mode(false).hashPrefix('');
-    //$locationProvider.html5Mode(false).hashPrefix('#');
     //$locationProvider.html5Mode(true).hashPrefix('#');
 }
 
@@ -55,7 +45,7 @@ angular.module('app', modules)
             //authority: 'https://login.microsoftonline.com/common',
             b2cScopes: ["https://cerrulliassociatesb2cdev.onmicrosoft.com/lodestar/api"],
             webApi: 'https://cerrulliassociatesb2cdev.onmicrosoft.com/lodestar',
-            redirectPath: 'http://localhost:4400'
+            redirectPath: 'http://localhost:4400/'
         }
     });
 
@@ -65,6 +55,7 @@ if (window !== window.parent && !window.opener) {
             function (AppConfig, LoggingService, msal, $locationProvider, $httpProvider) {
                 LoggingService.debug('app.config.opener: ' + AppConfig.b2c.redirectPath);
 
+                // see function @ line 37
                 htmlMode($locationProvider);
 
                 try {
@@ -94,26 +85,31 @@ if (window !== window.parent && !window.opener) {
             function (AppConfig, LoggingService, msal, $locationProvider, $httpProvider, $urlRouterProvider, $stateProvider) {
                 LoggingService.debug('app.config: ' + AppConfig.b2c.redirectPath);
 
+                // see function @ line 37
                 htmlMode($locationProvider);
 
-                $stateProvider
-                    .state('home', {
-                        url: '/',
-                        template: require('./templates/home/version.html'),
-                        controller: 'HomeController'
-                    })
-                    .state('home.sub', {
-                        url: 'sub',
-                        template: require('./templates/home/sub.html'),
-                        controller: 'SubController'
-                    });
+                function doStates() {
+                    $stateProvider
+                        .state('home', {
+                            url: '/',
+                            template: require('./templates/home/version.html'),
+                            controller: 'HomeController'
+                        })
+                        .state('home.sub', {
+                            url: 'sub',
+                            template: require('./templates/home/sub.html'),
+                            controller: 'SubController'
+                        });
 
-                $urlRouterProvider.otherwise(
-                    function ($injector) {
-                        var $state = $injector.get('$state');
-                        $state.transitionTo('home');
-                    }
-                );
+                    $urlRouterProvider.otherwise(
+                        function ($injector) {
+                            var $state = $injector.get('$state');
+                            $state.transitionTo('home');
+                        }
+                    );
+                }
+
+                doStates();
 
                 try {
                     msal.init({
@@ -152,29 +148,25 @@ if (window !== window.parent && !window.opener) {
                     }
                 );
 
-                function loadApplication(token) {
-                    LoggingService.debug('tokenReceived: ' + token);
+                function tokenSuccess(token) {
+                    LoggingService.debug('tokenSuccess: ' + token);
                 }
 
                 clientApplication.acquireTokenSilent(AppConfig.b2c.b2cScopes, AppConfig.b2c.authority)
                     .then(
-                        loadApplication,
+                        tokenSuccess,
                         function (error) {
-                            console.log('yuppers2: ' + error);
-                            setTimeout(function () {
-                                if (error.indexOf("user_login_error") !== -1) {
-                                    clientApplication.loginRedirect(AppConfig.b2c.b2cScopes, AppConfig.b2c.authority);
-                                } else {
-                                    clientApplication.acquireTokenRedirect(AppConfig.b2c.b2cScopes, AppConfig.b2c.authority)
-                                        .then(
-                                            loadApplication,
-                                            function (error) {
-                                                LoggingService.error('token error: ' + error);
-                                            }
-                                        );
-                                }
-                            }, 1000);
-
+                            if (error.indexOf("user_login_error") !== -1) {
+                                clientApplication.loginRedirect(AppConfig.b2c.b2cScopes, AppConfig.b2c.authority);
+                            } else {
+                                clientApplication.acquireTokenRedirect(AppConfig.b2c.b2cScopes, AppConfig.b2c.authority)
+                                    .then(
+                                        tokenSuccess,
+                                        function (error) {
+                                            LoggingService.error('token error: ' + error);
+                                        }
+                                    );
+                            }
                         }
                     );
             }
@@ -186,13 +178,6 @@ if (window !== window.parent && !window.opener) {
             function ($rootScope, $trace, $transitions, LoggingService) {
 
                 LoggingService.debug("app.run");
-                // $rootScope.$on('msal:acquireTokenSuccess', function (event, tokenOut) {
-                //     LoggingService.info('msal:acquireTokenSuccess: ' + tokenOut);
-                // });
-
-                // $rootScope.$on("msal:acquireTokenFailure", function (event, errorDesc, error) {
-                //     LoggingService.info('msal:acquireTokenFailure: ' + error);
-                // });
 
                 $trace.enable('TRANSITION');
             }
