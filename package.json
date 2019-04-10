@@ -14,7 +14,7 @@
     "@azure/msal-angularjs": "^0.1.1",
     "@uirouter/angularjs": "^1.0.20",
     "angular": "^1.7.5",
-    "msal": "^0.2.3",
+    "msal": "^0.2.4",
     "ngstorage": "^0.3.11"
   },
   "devDependencies": {

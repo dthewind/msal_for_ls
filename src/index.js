@@ -41,45 +41,14 @@ angular.module('app', modules)
     .constant('AppConfig', {
         b2c: {
             clientID: '36a43f27-7ee4-4ce6-8027-0385c3180ccd',
-            authority: "https://login.microsoftonline.com/tfp/cerrulliassociatesb2cdev.onmicrosoft.com/B2C_1_SignUpOrIn/",
-            //authority: 'https://login.microsoftonline.com/common',
-            b2cScopes: ["https://cerrulliassociatesb2cdev.onmicrosoft.com/lodestar/api"],
-            webApi: 'https://cerrulliassociatesb2cdev.onmicrosoft.com/lodestar',
-            redirectPath: 'http://localhost:4400/'
+            authority: "https://login.microsoftonline.com/tfp/cerrulliassociatesb2cdev.onmicrosoft.com/B2C_1_SignUpOrIn",
+            //authority: "https://login.microsoftonline.com/cerrulliassociatesb2cdev.onmicrosoft.com/oauth2/v2.0/authorize?p=B2C_1_SignUpOrIn",
+            b2cScopes: ["https://cerrulliassociatesb2cdev.onmicrosoft.com/lodestar/api"], //, "https://graph.microsoft.com/User.Read"], // "https://cerrulliassociatesb2cdev.onmicrosoft.com/api/read"],
+            webApi: 'https://cerrulliassociatesb2cdev.onmicrosoft.com/lodestar'
         }
     });
 
-if (window !== window.parent && !window.opener) {
-    angular.module('app')
-        .config(['AppConfig', 'LoggingServiceProvider', 'msalAuthenticationServiceProvider', '$locationProvider', '$httpProvider',
-            function (AppConfig, LoggingService, msal, $locationProvider, $httpProvider) {
-                LoggingService.debug('app.config.opener: ' + AppConfig.b2c.redirectPath);
-
-                // see function @ line 37
-                htmlMode($locationProvider);
-
-                try {
-                    msal.init({
-                        clientID: AppConfig.b2c.clientID,
-                        authority: AppConfig.b2c.authority,
-                        tokenReceivedCallback: msalTokenReceivedCallback(LoggingService),
-                        optionalParams: {
-                            cacheLocation: 'localStorage',
-                            logger: msalLogger(LoggingService),
-                            storeAuthStateInCookie: true,
-                            isAngular: true // probably not necessary
-                        },
-                        routeProtectionConfig: {
-                            popUp: true
-                        }
-                    }, $httpProvider);
-                } catch (error) {
-                    LoggingService.error('msal.init:error');
-                    LoggingService.error(error);
-                }
-            }
-        ]);
-} else {
+{
     angular.module('app')
         .config(['AppConfig', 'LoggingServiceProvider', 'msalAuthenticationServiceProvider', '$locationProvider', '$httpProvider', '$urlRouterProvider', '$stateProvider',
             function (AppConfig, LoggingService, msal, $locationProvider, $httpProvider, $urlRouterProvider, $stateProvider) {
@@ -111,6 +80,20 @@ if (window !== window.parent && !window.opener) {
 
                 doStates();
 
+                var msalUserAgent = new Msal.UserAgentApplication(
+                    AppConfig.b2c.clientID,
+                    AppConfig.b2c.authority,
+                    msalTokenReceivedCallback(LoggingService), {
+                        //msalTokenReceivedCallback(LoggingService), {
+                        storeAuthStateInCookie: true,
+                        cacheLocation: 'localStorage',
+                        logger: msalLogger(LoggingService),
+                        //postLogoutRedirectUri: AppConfig.hrefs['logout']['href'],
+                        state: location.hash,
+                        //protectedResourceMap: protectedResourceMap
+                    }
+                );
+
                 try {
                     msal.init({
                         clientID: AppConfig.b2c.clientID,
@@ -123,43 +106,41 @@ if (window !== window.parent && !window.opener) {
                             redirectUri: AppConfig.b2c.redirectPath,
                             postLogoutRedirectUri: AppConfig.b2c.redirectPath,
                             navigateToLoginRequestUrl: false,
+                            state: location.hash,
                             //protectedResourceMap: protectedResourceMap,
                             //unprotectedResources: [],
                             storeAuthStateInCookie: true,
-                            isAngular: true // probably not necessary
+                            isAngular: true // probably not necessary,
                         },
                         routeProtectionConfig: {
                             popUp: false,
-                            requireLogin: true
+                            requireLogin: false
                         }
                     }, $httpProvider);
                 } catch (error) {
                     LoggingService.error('msal.init:error');
                     LoggingService.error(error);
-                }
-
-                var clientApplication = new Msal.UserAgentApplication(
-                    AppConfig.b2c.clientID,
-                    AppConfig.b2c.authority,
-                    msalTokenReceivedCallback(LoggingService), {
-                        storeAuthStateInCookie: true,
-                        cacheLocation: 'localStorage',
-                        logger: msalLogger(LoggingService)
+                    if (error.indexOf("Url required") !== -1) {
+                        for (var i in localStorage) {
+                            if (i.indexOf("msal") !== -1 || i.indexOf("clientId") !== -1) {
+                                delete localStorage[i];
+                            }
+                        }
                     }
-                );
+                }
 
                 function tokenSuccess(token) {
                     LoggingService.debug('tokenSuccess: ' + token);
                 }
 
-                clientApplication.acquireTokenSilent(AppConfig.b2c.b2cScopes, AppConfig.b2c.authority)
+                msalUserAgent.acquireTokenSilent(AppConfig.b2c.b2cScopes, AppConfig.b2c.authority)
                     .then(
                         tokenSuccess,
                         function (error) {
                             if (error.indexOf("user_login_error") !== -1) {
-                                clientApplication.loginRedirect(AppConfig.b2c.b2cScopes, AppConfig.b2c.authority);
+                                msalUserAgent.loginRedirect(AppConfig.b2c.b2cScopes, AppConfig.b2c.authority);
                             } else {
-                                clientApplication.acquireTokenRedirect(AppConfig.b2c.b2cScopes, AppConfig.b2c.authority)
+                                msalUserAgent.acquireTokenRedirect(AppConfig.b2c.b2cScopes, AppConfig.b2c.authority)
                                     .then(
                                         tokenSuccess,
                                         function (error) {
